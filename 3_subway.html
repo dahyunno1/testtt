@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.0/p5.js"></script>
+    <meta charset="utf-8" />
+    <style>
+        @import url('https://fastly.jsdelivr.net/npm/galmuri@latest/dist/galmuri.css');
+
+body {
+    font-family: 'galmuri11', sans-serif; /* 기본 폰트 설정 */
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+}
+
+.introtext {
+    position: fixed; /* 화면에 고정 */
+    top: 50%; /* 화면의 세로 중앙 */
+    left: 50%; /* 화면의 가로 중앙 */
+    transform: translate(-50%, -50%); /* 정확히 중앙 정렬 */
+    background-color: #c9e8ff; /* 노란색 배경 */
+    border: 1px solid #000;
+    color: #000; /* 검은색 텍스트 */
+    font-family: 'galmuri11', sans-serif; /* 텍스트 박스 폰트 */
+    padding: 3vw 2vw; /* 화면 크기에 비례한 내부 여백 */
+    border-radius: 1vw; /* 화면 크기에 비례한 둥근 모서리 */
+    font-size: 1.5vw; /* 화면 너비에 비례한 텍스트 크기 */
+    line-height: 1.8; /* 줄 간격 조정 */
+    text-align: center; /* 텍스트 중앙 정렬 */
+    z-index: 1000; /* 콘텐츠 위로 뜨게 */
+    display: none; /* 처음에는 숨김 */
+    max-width: 60; /* 너무 커지지 않도록 최대 너비 제한 */
+    max-height: 40%; /* 최대 높이 제한 */
+   
+}
+
+.introtext button {
+    margin-top: 2vh; /* 화면 높이에 비례한 여백 */
+    padding: 1vh 2vh; /* 화면 크기에 비례한 내부 여백 */
+    background-color: #ffdf00; /* 버튼 배경색 */
+    color: #000; /* 버튼 텍스트 색상 */
+    border: 1px solid #000; /* 화면 크기에 비례한 테두리 */
+    border-radius: 1vh; /* 화면 크기에 비례한 둥근 모서리 */
+    cursor: pointer;
+    font-size: 1vw; /* 화면 너비에 비례한 텍스트 크기 */
+    line-height: 1.8; /* 줄 간격 조정 */
+    font-family: 'galmuri11', sans-serif; /* 버튼 폰트 */
+}
+
+.introtext button:hover {
+    background-color: #333; /* 호버 시 배경색 */
+    color: #fff; /* 호버 시 텍스트 색상 */
+}
+
+.finishtext {
+    position: fixed;
+    bottom: 50%; /* 화면 하단 10% */
+    left: 50%; /* 가로 중앙 */
+    transform: translateX(-50%); /* 정확히 중앙 정렬 */
+    background-color: #ffdf00;
+    color: #000;
+    padding: 2vw 3vw;
+    border-radius: 2vh;
+    font-size: 5vw;
+    text-align: left;
+    display: none; /* 처음에는 숨김 */
+}
+
+.canvas-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.fade-out {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: black;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease-in-out; /* 1초 동안 부드럽게 페이드 아웃 */
+    z-index: 999; /* 페이지 컨텐츠 위에 위치 */
+}
+
+.fade-out.active {
+    opacity: 1;
+}
+</style>
+</head>
+<body>
+    <main>
+        <div class="introtext" id="textBox">
+            홍익이는 지하철을 오랫동안 타야 학교에 도착할 수 있습니다.
+            <br>출근 시간에 지하철에 앉아서 가는 것은 피로도를 엄청나게 줄여주지만,
+            <br>빠른 눈치와 속도, 그리고 운이 따라줘야 가능한 일이죠.
+            <br>앉아 있는 사람들이 나갔을 때, 재빨리 자리를 클릭하여 좌석을 차지하세요! 
+            <br> 오늘 과연 홍익이는 앉아서 갈 수 있을까요?
+            <br>* 5번 앉으면 성공합니다. *
+            <button onclick="closeBox()">Let's Go!</button>
+        </div>
+        
+        <!-- 중앙에 보일 텍스트 박스 -->
+        <div id="victoryTextBox" class="finishtext" style="display: none;">
+            Finish!
+        </div>
+
+        <div id="fadeOut" class="fade-out"></div>
+    </main>
+
+    <script>
+        let images = []; // 이미지를 저장할 배열
+        let positions = []; // 사각형의 위치를 저장할 배열
+        let hiddenIndex = -1; // 현재 사라진 이미지의 인덱스
+        let backgroundImg;
+        let sit;
+        let score = 0;
+        let subchaMoving = true; // 이미지 모션 상태
+        let fadeInAmount = 255;
+
+        function preload() {
+            // 4장의 이미지 미리 로드
+            customCursor = loadImage('player_front.png');
+            backgroundImg = loadImage('sub_bg.png');
+            images.push(loadImage('subcha_1.png'));
+            images.push(loadImage('subcha_2.png'));
+            images.push(loadImage('subcha_3.png'));
+            images.push(loadImage('subcha_4.png'));
+            sit = loadImage('sub_sit.png');
+        }
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);  // 윈도우 크기에 맞게 캔버스 크기 조정
+            noStroke();
+            customCursor.resize(32, 32);
+            cursor(customCursor);
+
+            setTimeout(() => {
+                const textBox = document.getElementById('textBox');
+                textBox.style.display = 'block'; // 텍스트 박스 보이기
+            }, 2000); // 페이드인 완료 시간 (3000ms)
+
+            let rectWidth = width * 0.15; // 화면 너비에 비례한 사각형 너비
+            let rectHeight = height * 0.15; // 화면 높이에 비례한 사각형 높이
+            let xSpacing = width * 0.02; // 화면 너비에 비례한 열 간격
+            let ySpacing = height * 0.15; // 화면 높이에 비례한 행 간격
+            let gridWidth = 4 * rectWidth + 3 * xSpacing;
+            let gridHeight = 2 * rectHeight + ySpacing;
+            let startX = (width - gridWidth) / 2;
+            let startY = (height - gridHeight) / 2;
+
+            // 4x2 배열로 사각형 위치 저장
+            for (let row = 0; row < 2; row++) {
+                for (let col = 0; col < 4; col++) {
+                    let x = startX + col * (rectWidth + xSpacing); // x 위치
+                    let y = startY + row * (rectHeight + ySpacing); // y 위치
+                    positions.push({ x, y, width: rectWidth, height: rectHeight });
+                }
+            }
+
+            // 이미지를 랜덤하게 배치
+            randomizeImages();
+
+            // 2초마다 이미지를 랜덤하게 숨기고 다시 나타나게 함
+            setInterval(toggleRandomImage, 2000);
+        }
+
+        function closeBox() {
+            const textBox = document.getElementById('textBox');
+            textBox.style.display = 'none'; // 텍스트 박스 숨기기
+        }
+
+        function draw() {
+            clear();
+            background(backgroundImg);
+
+            // 사각형(대신 sit 이미지)을 그리고 그 위에 subcha 이미지를 올리기
+            for (let i = 0; i < positions.length; i++) {
+                let pos = positions[i];
+
+                // sit 이미지 크기 조정 (비율 유지하면서 크기 키우기)
+                let sitSize = min(pos.width, pos.height) * 1.5; // 크기 1.5배로 키우기
+                let sitX = pos.x + (pos.width - sitSize) / 2;  // 중앙 정렬
+                let sitY = pos.y + (pos.height - sitSize) / 2; // 중앙 정렬
+                image(sit, sitX, sitY, sitSize, sitSize); // 이미지를 1.5배로 그리기
+
+                // 각 위치에 subcha 이미지를 올리기
+                if (pos.image) {
+                    let img = pos.image;
+                    let aspectRatio = img.width / img.height;
+
+                    // 이미지를 사각형에 맞게 비율 유지하면서 크기 조정
+                    let imgWidth = pos.width * 1.7 * 1.5; // 크기 1.5배로 키우기
+                    let imgHeight = pos.width * 1.7 * 1.5 / aspectRatio;
+
+                    // 이미지가 높이를 초과하면 높이를 기준으로 크기 재조정
+                    if (imgHeight > pos.height * 1.7 * 1.5) {
+                        imgHeight = pos.height * 1.7 * 1.5;
+                        imgWidth = pos.height * 1.7 * 1.5 * aspectRatio;
+                    }
+
+                    let moveY = subchaMoving ? sin(frameCount * 0.2) * 2 : 0; // 점수 5점 이상이면 움직임 멈춤
+
+                    // 이미지를 sit 이미지 위에 배치
+                    let imgX = pos.x + (pos.width - imgWidth) / 2;
+                    let imgY = pos.y + (pos.height - imgHeight) / 2 + moveY;
+
+                    image(img, imgX, imgY, imgWidth, imgHeight);
+                }
+            }
+
+            if (fadeInAmount > 0) {
+                fadeInAmount -= 5;
+                fill(0, fadeInAmount);
+                rect(0, 0, width, height);
+            }
+
+            fill(0);
+            textSize(width * 0.02); // 화면 너비에 비례한 글자 크기
+            textFont('galmuri11');
+            text(`Score: ${score}`, width * 0.05, height * 0.1);  // 화면 위치에 비례한 점수 표시
+        }
+
+        function randomizeImages() {
+            let shuffledImages = shuffle([...images, ...images]); // 이미지 2세트를 셔플
+            for (let i = 0; i < positions.length; i++) {
+                positions[i].image = shuffledImages[i]; // 각 위치에 이미지를 배정
+            }
+        }
+
+        function toggleRandomImage() {
+            // 이전에 숨긴 이미지를 복원
+            if (hiddenIndex !== -1) {
+                let randomImage = random(images); // 4가지 이미지 중 하나 랜덤 선택
+                positions[hiddenIndex].image = randomImage; // 해당 자리에 새로운 랜덤 이미지 할당
+            }
+
+            // 새로운 랜덤 인덱스 선택
+            hiddenIndex = floor(random(positions.length));
+
+            // 현재 이미지를 숨기고 originalImage 속성에 저장
+            positions[hiddenIndex].originalImage = positions[hiddenIndex].image;
+            positions[hiddenIndex].image = null;
+
+            // 1초 뒤에 다시 이미지 복원
+            setTimeout(() => {
+                let randomImage = random(images); // 복원할 때 4가지 이미지 중 하나 랜덤으로 선택
+                positions[hiddenIndex].image = randomImage;
+                hiddenIndex = -1; // 숨김 상태 초기화
+            }, 500);
+        }
+
+        function mousePressed() {
+            if (hiddenIndex === -1) return; // 숨겨진 이미지가 없으면 처리 안 함
+
+            let hiddenPos = positions[hiddenIndex];
+
+            // 클릭한 위치가 hiddenIndex의 영역 안에 있는지 확인
+            if (
+                mouseX >= hiddenPos.x &&
+                mouseX <= hiddenPos.x + hiddenPos.width &&
+                mouseY >= hiddenPos.y &&
+                mouseY <= hiddenPos.y + hiddenPos.height
+            ) {
+                score++; // 점수 증가
+                console.log("Correct! Score:", score);
+
+                if (score >= 5) {
+                    subchaMoving = false; // subcha 움직임 멈추기
+                    console.log("Subcha motion stopped!");
+                    showVictoryBox();
+                }
+            }
+        }
+
+        function showVictoryBox() {
+            // 중앙 텍스트 박스를 2초 동안 보이게 설정
+            const victoryTextBox = document.getElementById('victoryTextBox');
+            victoryTextBox.style.display = 'block';
+
+            setTimeout(() => {
+                victoryTextBox.style.display = 'none'; // 2초 후 텍스트 박스 숨기기
+                const fadeOut = document.getElementById('fadeOut');
+                fadeOut.classList.add('active');  // 2초 후에 페이드 아웃 효과를 시작
+            }, 3000);  // 2초 후에 사라지게
+
+            // 3초 후에 페이지 이동
+            setTimeout(() => {
+                window.location.href = "2b_board_afterS.html";  // 이동할 페이지 URL을 설정하세요
+            }, 6000);
+        }
+    </script>
+</body>
+</html>
